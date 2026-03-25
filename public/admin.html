@@ -141,11 +141,35 @@
         .login-btn:hover { transform: translateY(-2px); }
         .login-error { color: #f48070; font-size: 13px; margin-top: 10px; font-weight: 700; }
 
+        /* STOCK PANEL */
+        .stock-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(7,5,4,0.82); backdrop-filter: blur(10px); display: none; align-items: flex-start; justify-content: flex-end; padding: 70px 16px 16px; }
+        .stock-overlay.open { display: flex; }
+        .stock-panel { width: min(400px, 100%); max-height: calc(100vh - 90px); overflow-y: auto; background: rgba(20,14,10,0.98); border: 1px solid var(--line); border-radius: var(--radius-xl); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+        .stock-panel-head { position: sticky; top: 0; background: rgba(20,14,10,0.98); padding: 20px 20px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 12px; z-index: 1; }
+        .stock-panel-head h2 { font-family: var(--serif); font-size: 24px; font-weight: 700; color: #fff7ef; margin: 0; }
+        .stock-panel-close { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,247,239,0.06); color: var(--text); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .stock-panel-body { padding: 14px 20px 20px; display: grid; gap: 6px; }
+        .stock-cat-title { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); margin: 14px 0 6px; }
+        .stock-cat-title:first-child { margin-top: 0; }
+        .stock-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(255,247,239,0.04); border: 1px solid var(--line); transition: border-color 0.2s; }
+        .stock-row:hover { border-color: var(--line-strong); }
+        .stock-row-name { font-size: 13px; font-weight: 700; color: var(--text); flex: 1; min-width: 0; }
+        .stock-row-price { font-size: 12px; color: var(--muted); white-space: nowrap; }
+        /* SWITCH */
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .switch-track { position: absolute; inset: 0; border-radius: 999px; background: rgba(160,58,44,0.4); border: 1px solid rgba(160,58,44,0.5); cursor: pointer; transition: background 0.25s, border-color 0.25s; }
+        .switch input:checked + .switch-track { background: rgba(45,122,82,0.55); border-color: rgba(45,122,82,0.7); }
+        .switch-track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #f48070; transition: transform 0.25s, background 0.25s; }
+        .switch input:checked + .switch-track::after { transform: translateX(20px); background: #73db9a; }
+        .stock-loading { padding: 30px; text-align: center; color: var(--muted); font-size: 13px; }
+
         @media (max-width: 980px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
         @media (max-width: 720px) {
             .admin-topbar { flex-direction: column; align-items: stretch; }
             .btn-refresh { width: 100%; justify-content: center; }
             .kpi-grid { grid-template-columns: repeat(2,1fr); }
+            .stock-overlay { padding: 70px 8px 8px; }
         }
     </style>
 </head>
@@ -171,9 +195,22 @@
                     <div class="brand-sub">Espace restaurateur</div>
                 </div>
             </a>
-            <a href="tel:0148600066" class="header-phone">📞 01 48 60 00 66</a>
+            <button class="header-phone" id="btnOpenStock" type="button">📦 Gérer les stocks</button>
         </div>
     </header>
+
+    <!-- PANNEAU STOCKS -->
+    <div class="stock-overlay" id="stockOverlay">
+        <div class="stock-panel" id="stockPanel">
+            <div class="stock-panel-head">
+                <h2>📦 Stocks</h2>
+                <button class="stock-panel-close" id="stockClose">×</button>
+            </div>
+            <div class="stock-panel-body" id="stockBody">
+                <div class="stock-loading">Chargement des stocks…</div>
+            </div>
+        </div>
+    </div>
 
     <div class="banner">
         <img src="Maison.png.png" alt="Maison du Four">
@@ -200,6 +237,7 @@
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyB8cSJrknn2OMOxxIyIESA6_8WF_Upjczk",
@@ -207,18 +245,14 @@
         projectId: "maison-du-four",
         storageBucket: "maison-du-four.firebasestorage.app",
         messagingSenderId: "319278460499",
-        appId: "1:319278460499:web:30950f2de69ae82e1fe0a6"
+        appId: "1:319278460499:web:30950f2de69ae82e1fe0a6",
+        databaseURL: "https://maison-du-four-default-rtdb.europe-west1.firebasedatabase.app"
     };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const rtdb = getDatabase(app);
 
-    const ordersRoot=document.getElementById("ordersRoot");
-    const statsRoot=document.getElementById("statsRoot");
-    const refreshButton=document.getElementById("refreshButton");
-    const statusOrder=["nouvelle","prete","vendu"];
-    const statusLabels={nouvelle:"Nouvelle",prete:"Prête",vendu:"Vendu"};
-
-    // MOT DE PASSE (hashé SHA-256 — non lisible en clair)
+    // ─── LOGIN ───────────────────────────────────────────────────────────────
     const HASH = "64fa8fae6f93b6927c1f5967cf66934001f10735dc43418e31a9144ce6cc559b";
     const loginScreen = document.getElementById("loginScreen");
     const loginBtn = document.getElementById("loginBtn");
@@ -231,30 +265,35 @@
         const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
         return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
     }
-
     loginBtn.addEventListener("click", async ()=>{
         const hash = await hashPassword(passwordInput.value);
-        if(hash === HASH){
-            sessionStorage.setItem("admin_auth","ok");
-            loginScreen.classList.add("hidden");
-        } else {
-            loginError.textContent = "Mot de passe incorrect.";
-            passwordInput.value = "";
-            passwordInput.focus();
-        }
+        if(hash === HASH){ sessionStorage.setItem("admin_auth","ok"); loginScreen.classList.add("hidden"); }
+        else { loginError.textContent = "Mot de passe incorrect."; passwordInput.value = ""; passwordInput.focus(); }
     });
     passwordInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter") loginBtn.click(); });
 
-    function euro(v){return new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(v);}
-    function formatDate(v){return new Intl.DateTimeFormat("fr-FR",{dateStyle:"short",timeStyle:"short"}).format(new Date(v));}
+    // ─── UTILITAIRES ─────────────────────────────────────────────────────────
+    function euro(v){ return new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(v); }
+    function formatDate(v){ return new Intl.DateTimeFormat("fr-FR",{dateStyle:"short",timeStyle:"short"}).format(new Date(v)); }
+
+    // ─── ALERTE SONORE (nouvelle commande) ───────────────────────────────────
+    let knownOrderIds = null; // null = premier chargement, pas d'alerte
+    const alertAudio = new Audio("videoplayback.m4a");
+    alertAudio.preload = "auto";
+
+    // ─── KPI + COMMANDES ─────────────────────────────────────────────────────
+    const ordersRoot = document.getElementById("ordersRoot");
+    const statsRoot  = document.getElementById("statsRoot");
+    const statusOrder  = ["nouvelle","prete","vendu"];
+    const statusLabels = { nouvelle:"Nouvelle", prete:"Prête", vendu:"Vendu" };
 
     function renderStats(orders){
         const today = new Date().toDateString();
         const vendusAujourdhui = orders.filter(o=>o.status==="vendu" && new Date(o.createdAt).toDateString()===today).length;
         statsRoot.innerHTML=[
-            {label:"Total commandes",value:orders.length},
-            {label:"Nouvelles",value:orders.filter(o=>o.status==="nouvelle").length},
-            {label:"Prêtes",value:orders.filter(o=>o.status==="prete").length},
+            {label:"Total commandes", value:orders.length},
+            {label:"Nouvelles",        value:orders.filter(o=>o.status==="nouvelle").length},
+            {label:"Prêtes",           value:orders.filter(o=>o.status==="prete").length},
             {label:"Vendus aujourd'hui",value:vendusAujourdhui}
         ].map(s=>`<div class="kpi-card"><span class="kpi-number">${s.value}</span><span class="kpi-label">${s.label}</span></div>`).join("");
     }
@@ -299,29 +338,138 @@
     }
 
     async function updateStatus(firebaseId, status){
-        try{
-            await updateDoc(doc(db,"commandes",firebaseId),{status});
-        }catch(err){alert("Erreur : "+err.message);}
+        try{ await updateDoc(doc(db,"commandes",firebaseId),{status}); }
+        catch(err){ alert("Erreur : "+err.message); }
     }
-
     async function deleteOrder(firebaseId){
         if(!confirm("Supprimer cette commande ?"))return;
-        try{
-            await deleteDoc(doc(db,"commandes",firebaseId));
-        }catch(err){alert("Erreur : "+err.message);}
+        try{ await deleteDoc(doc(db,"commandes",firebaseId)); }
+        catch(err){ alert("Erreur : "+err.message); }
     }
 
-    // Écoute en temps réel — mise à jour automatique dès qu'une commande arrive
+    // Écoute temps réel Firestore + détection nouvelle commande → son
     const q = query(collection(db,"commandes"), orderBy("createdAt","desc"));
     onSnapshot(q, (snapshot)=>{
-        const orders = snapshot.docs.map(d=>({firebaseId:d.id, ...d.data()}));
+        const orders = snapshot.docs.map(d=>({firebaseId:d.id,...d.data()}));
+        const currentIds = new Set(snapshot.docs.map(d=>d.id));
+
+        if(knownOrderIds !== null){
+            // Cherche un ID inconnu = nouvelle commande
+            let isNew = false;
+            currentIds.forEach(id=>{ if(!knownOrderIds.has(id)) isNew=true; });
+            if(isNew){
+                alertAudio.currentTime = 0;
+                alertAudio.play().catch(()=>{}); // catch si autoplay bloqué
+            }
+        }
+        knownOrderIds = currentIds;
+
         renderStats(orders);
         renderOrders(orders);
     }, (err)=>{
         ordersRoot.innerHTML=`<div class="error-msg">⚠️ Impossible de charger les commandes : ${err.message}</div>`;
     });
 
-    refreshButton.addEventListener("click",()=>{}); // Pas besoin, c'est en temps réel
+    document.getElementById("refreshButton").addEventListener("click",()=>{});
+
+    // ─── STOCKS (Realtime Database) ───────────────────────────────────────────
+    const MENU_ITEMS = [
+        {cat:"🍕 Pizzas base tomate", items:[
+            {id:"margherita",name:"Margherita",price:10},{id:"reine",name:"Reine",price:11},
+            {id:"campione",name:"Campione",price:11},{id:"quatre-fromages",name:"4 Fromages",price:11},
+            {id:"orientale",name:"L'Orientale",price:11},{id:"quatre-saisons",name:"4 Saisons",price:11},
+            {id:"calzone",name:"La Calzone",price:12},{id:"hot-mexicaine",name:"La Hot Mexicaine",price:12},
+            {id:"royale",name:"La Royale",price:12},{id:"savoyarde",name:"Savoyarde",price:12},
+            {id:"quatre-viandes",name:"La 4 Viandes",price:12},{id:"neptune",name:"La Neptune",price:12},
+            {id:"vegie",name:"Vegie",price:12},{id:"bbq",name:"La BBQ",price:13},
+            {id:"maison-du-four",name:"Maison du Four ⭐",price:13},{id:"burrata",name:"Burrata",price:13},
+            {id:"fruit-de-mer",name:"La Fruit de Mer",price:13}
+        ]},
+        {cat:"🍕 Pizzas base crème", items:[
+            {id:"fermiere",name:"La Fermière",price:12},{id:"chevre-miel",name:"La Chèvre Miel",price:12},
+            {id:"milano",name:"Milano",price:12},{id:"tartiflette",name:"La Tartiflette",price:12},
+            {id:"boursin",name:"La Boursin",price:13},{id:"saumon",name:"La Saumon",price:13}
+        ]},
+        {cat:"🥖 Sandwichs", items:[
+            {id:"sandwich-four",name:"Sandwich au Four",price:10}
+        ]},
+        {cat:"🍞 Bruschettas", items:[
+            {id:"bruschetta-legumes",name:"Bruschetta Légumes",price:8},
+            {id:"bruschetta-poulet",name:"Bruschetta Poulet",price:9},
+            {id:"bruschetta-saumon",name:"Bruschetta Saumon",price:9}
+        ]},
+        {cat:"🥗 Salades", items:[
+            {id:"petite-salade-verte",name:"Petite salade verte",price:3},{id:"nicoise",name:"Niçoise",price:7},
+            {id:"salade-fermiere",name:"Fermière",price:8},{id:"parisienne",name:"La Parisienne",price:8},
+            {id:"avocado",name:"L'Avocado",price:9},{id:"crustaces",name:"Crustacés",price:9}
+        ]},
+        {cat:"🍝 Pâtes & Lasagnes", items:[
+            {id:"lasagne-bolognaise",name:"Lasagne Bolognaise",price:9.5},
+            {id:"pates-au-four",name:"Pâtes au Four",price:9},
+            {id:"menu-enfant",name:"Menu Enfant",price:7.5}
+        ]},
+        {cat:"🍟 Tex-Mex", items:[
+            {id:"frites-maison",name:"Frites maison",price:2.5},
+            {id:"wings-nuggets-6",name:"6 wings ou nuggets",price:5},
+            {id:"stick-mozza-5",name:"Stick Mozza",price:5},
+            {id:"jalapenos",name:"Jalapeños",price:5},
+            {id:"wings-nuggets-12",name:"12 wings ou nuggets",price:8}
+        ]},
+        {cat:"🍨 Desserts & Boissons", items:[
+            {id:"desserts",name:"Desserts",price:3},{id:"haagen-dazs-100",name:"Häagen-Dazs 100ml",price:3.5},
+            {id:"haagen-dazs-500",name:"Häagen-Dazs 500ml",price:7.5},
+            {id:"eau-50cl",name:"Eau 50cl",price:1},{id:"canette",name:"Canette",price:1.5},
+            {id:"bouteille-15l",name:"Bouteille 1,5L",price:3},{id:"bouteille-2l",name:"Bouteille 2L",price:3.5}
+        ]}
+    ];
+
+    let stockData = {}; // { itemId: true/false }
+
+    // Écoute temps réel Realtime Database
+    const stockRef = ref(rtdb, "stocks");
+    onValue(stockRef, (snapshot)=>{
+        stockData = snapshot.val() || {};
+        renderStockPanel();
+    });
+
+    function renderStockPanel(){
+        const body = document.getElementById("stockBody");
+        body.innerHTML = MENU_ITEMS.map(cat=>`
+            <div class="stock-cat-title">${cat.cat}</div>
+            ${cat.items.map(item=>{
+                const enStock = stockData[item.id] !== false; // true par défaut
+                return `<div class="stock-row">
+                    <span class="stock-row-name">${item.name}</span>
+                    <span class="stock-row-price">${item.price} €</span>
+                    <label class="switch" title="${enStock?"En stock":"Rupture"}">
+                        <input type="checkbox" data-item-id="${item.id}" ${enStock?"checked":""}>
+                        <span class="switch-track"></span>
+                    </label>
+                </div>`;
+            }).join("")}
+        `).join("");
+
+        // Listener sur chaque switch
+        body.querySelectorAll("input[data-item-id]").forEach(input=>{
+            input.addEventListener("change", ()=>{
+                const itemId = input.dataset.itemId;
+                const enStock = input.checked;
+                set(ref(rtdb, `stocks/${itemId}`), enStock);
+            });
+        });
+    }
+
+    // Ouvrir / fermer panneau stocks
+    const stockOverlay = document.getElementById("stockOverlay");
+    document.getElementById("btnOpenStock").addEventListener("click",()=>{
+        stockOverlay.classList.add("open");
+    });
+    document.getElementById("stockClose").addEventListener("click",()=>{
+        stockOverlay.classList.remove("open");
+    });
+    stockOverlay.addEventListener("click",(e)=>{
+        if(e.target === stockOverlay) stockOverlay.classList.remove("open");
+    });
     </script>
 </body>
 </html>
