@@ -121,6 +121,31 @@
         .status-btn.btn-delete { border-color: rgba(160,58,44,0.3); color: #f48070; }
         .status-btn.btn-delete:hover { background: rgba(160,58,44,0.14); }
 
+        /* BOUTON VENDU COUNTDOWN */
+        .btn-vendu-confirm {
+            padding: 8px 16px; border-radius: 999px; border: none; cursor: pointer;
+            font-weight: 800; font-size: 13px; font-family: var(--sans);
+            background: linear-gradient(135deg, #2d7a52, #1e5438);
+            color: white; box-shadow: 0 4px 14px rgba(45,122,82,0.3);
+            transition: transform 0.15s;
+            position: relative; overflow: hidden;
+        }
+        .btn-vendu-confirm:hover { transform: translateY(-1px); }
+        .btn-vendu-countdown {
+            padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(239,181,91,0.4);
+            cursor: pointer; font-weight: 800; font-size: 13px; font-family: var(--sans);
+            background: rgba(239,181,91,0.12); color: var(--gold-soft);
+            position: relative; overflow: hidden; min-width: 160px;
+            transition: background 0.2s;
+        }
+        .btn-vendu-countdown:hover { background: rgba(239,181,91,0.2); }
+        .countdown-bar {
+            position: absolute; left: 0; top: 0; height: 100%;
+            background: rgba(239,181,91,0.18);
+            transition: width 1s linear;
+            pointer-events: none;
+        }
+
         .empty-state { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-xl); padding: 50px; text-align: center; }
         .empty-state h2 { font-family: var(--serif); font-size: 28px; color: #fff7ef; margin-bottom: 10px; }
         .empty-state p { color: var(--muted); }
@@ -287,9 +312,15 @@
     const statusOrder  = ["nouvelle","prete","vendu"];
     const statusLabels = { nouvelle:"Nouvelle", prete:"Prête", vendu:"Vendu" };
 
+    // ─── GESTION VENDU AVEC COUNTDOWN ────────────────────────────────────────
+    const pendingVendu = {}; // { firebaseId: { timeout, interval, seconds } }
+
     function renderStats(orders){
         const today = new Date().toDateString();
-        const vendusAujourdhui = orders.filter(o=>o.status==="vendu" && new Date(o.createdAt).toDateString()===today).length;
+        // Compter vendus confirmés + ceux en attente de confirmation (déjà cliqués)
+        const vendusConfirmes = orders.filter(o=>o.status==="vendu" && new Date(o.createdAt).toDateString()===today).length;
+        const vendusEnAttente = Object.keys(pendingVendu).length;
+        const vendusAujourdhui = vendusConfirmes + vendusEnAttente;
         statsRoot.innerHTML=[
             {label:"Total commandes", value:orders.length},
             {label:"Nouvelles",        value:orders.filter(o=>o.status==="nouvelle").length},
@@ -298,13 +329,61 @@
         ].map(s=>`<div class="kpi-card"><span class="kpi-number">${s.value}</span><span class="kpi-label">${s.label}</span></div>`).join("");
     }
 
+    function startVenduCountdown(firebaseId){
+        // Si déjà en cours → annuler
+        if(pendingVendu[firebaseId]){
+            clearTimeout(pendingVendu[firebaseId].timeout);
+            clearInterval(pendingVendu[firebaseId].interval);
+            delete pendingVendu[firebaseId];
+            renderVenduBtn(firebaseId, false);
+            // Recalc stats
+            const lastOrders = Array.from(ordersRoot.querySelectorAll("[data-firebase-id]")).map(el=>({firebaseId:el.dataset.firebaseId,status:el.dataset.status,createdAt:el.dataset.createdAt}));
+            renderStats(lastOrders);
+            return;
+        }
+
+        let seconds = 30;
+        pendingVendu[firebaseId] = {};
+        renderVenduBtn(firebaseId, true, seconds);
+
+        // Recalc stats immédiatement (compte +1 vendu en attente)
+        const allCards = Array.from(ordersRoot.querySelectorAll("article[data-firebase-id]")).map(el=>({firebaseId:el.dataset.firebaseId,status:el.dataset.status,createdAt:el.dataset.createdAt}));
+        renderStats(allCards);
+
+        pendingVendu[firebaseId].interval = setInterval(()=>{
+            seconds--;
+            renderVenduBtn(firebaseId, true, seconds);
+        }, 1000);
+
+        pendingVendu[firebaseId].timeout = setTimeout(async ()=>{
+            clearInterval(pendingVendu[firebaseId].interval);
+            delete pendingVendu[firebaseId];
+            try{
+                await updateDoc(doc(db,"commandes",firebaseId),{status:"vendu"});
+            }catch(err){ alert("Erreur : "+err.message); }
+        }, 30000);
+    }
+
+    function renderVenduBtn(firebaseId, counting, seconds=30){
+        const btn = document.querySelector(`[data-vendu-id="${firebaseId}"]`);
+        if(!btn) return;
+        if(counting){
+            const pct = (seconds/30)*100;
+            btn.className = "btn-vendu-countdown";
+            btn.innerHTML = `<div class="countdown-bar" style="width:${pct}%"></div><span style="position:relative;z-index:1;">↩ Annuler (${seconds}s)</span>`;
+        } else {
+            btn.className = "btn-vendu-confirm";
+            btn.innerHTML = `✅ Vendu`;
+        }
+    }
+
     function renderOrders(orders){
         if(!orders.length){
             ordersRoot.innerHTML=`<div class="empty-state"><h2>Aucune commande</h2><p>Les commandes apparaîtront ici en temps réel.</p></div>`;
             return;
         }
         ordersRoot.innerHTML=orders.map(o=>`
-            <article class="order-card">
+            <article class="order-card" data-firebase-id="${o.firebaseId}" data-status="${o.status}" data-created-at="${o.createdAt}">
                 <div class="order-head">
                     <div><h3>Commande #${o.orderNumber||"–"}</h3><p>${o.customerName} — ${formatDate(o.createdAt)}</p></div>
                     <span class="status-pill ${o.status}">${statusLabels[o.status]||o.status}</span>
@@ -328,12 +407,20 @@
                     <span class="order-total-value">${euro(o.total)}</span>
                 </div>
                 <div class="status-actions">
-                    ${statusOrder.map(s=>`<button type="button" class="status-btn ${o.status===s?"is-active":""}" data-id="${o.firebaseId}" data-status="${s}">${statusLabels[s]}</button>`).join("")}
+                    ${["nouvelle","prete"].map(s=>`<button type="button" class="status-btn ${o.status===s?"is-active":""}" data-id="${o.firebaseId}" data-status="${s}">${statusLabels[s]}</button>`).join("")}
+                    <button type="button"
+                        class="${pendingVendu[o.firebaseId]?"btn-vendu-countdown":"btn-vendu-confirm"}"
+                        data-vendu-id="${o.firebaseId}">
+                        ${pendingVendu[o.firebaseId]
+                            ? `<div class="countdown-bar" style="width:${((pendingVendu[o.firebaseId].seconds||30)/30)*100}%"></div><span style="position:relative;z-index:1;">↩ Annuler</span>`
+                            : "✅ Vendu"}
+                    </button>
                     <button type="button" class="status-btn btn-delete" data-delete="${o.firebaseId}">🗑 Supprimer</button>
                 </div>
             </article>`).join("");
 
         ordersRoot.querySelectorAll("[data-id]").forEach(b=>b.addEventListener("click",()=>updateStatus(b.dataset.id,b.dataset.status)));
+        ordersRoot.querySelectorAll("[data-vendu-id]").forEach(b=>b.addEventListener("click",()=>startVenduCountdown(b.dataset.venduId)));
         ordersRoot.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>deleteOrder(b.dataset.delete)));
     }
 
