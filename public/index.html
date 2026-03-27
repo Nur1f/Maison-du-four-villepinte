@@ -361,7 +361,7 @@
                     <div class="meta-cards">
                         <div class="meta-card"><div class="meta-card-label">Étape 1</div><div class="meta-card-value">Choisis tes plats</div></div>
                         <div class="meta-card"><div class="meta-card-label">Étape 2</div><div class="meta-card-value">Envoie la commande</div></div>
-                        <div class="meta-card"><div class="meta-card-label">Étape 3</div><div class="meta-card-value">Paiement sur place</div></div>
+                        <div class="meta-card"><div class="meta-card-label">Étape 3</div><div class="meta-card-value">💳 Paiement en ligne</div></div>
                     </div>
                 </div>
                 <div class="side-info">
@@ -408,7 +408,7 @@
                             </div>
                         </label>
                         <label>Notes<textarea name="notes" placeholder="Sans olives, sauce à part..."></textarea></label>
-                        <button type="submit" class="btn-primary">Envoyer la commande</button>
+                        <button type="submit" class="btn-primary">💳 Payer en ligne</button>
                         <button type="button" class="btn-secondary" id="clearCartButton">Vider le panier</button>
                     </form>
                     <div id="feedback"></div>
@@ -708,41 +708,81 @@
     }
 
     async function submitOrder(e){
-        e.preventDefault();setFeedback("","");
-        if(!cartInstances.length){setFeedback("Ajoute au moins un article.","error");return;}
-        const fd=new FormData(orderForm);
-        const orderType=fd.get("orderType");
-        const typeLabel=orderType==="sur_place"?"sur place":"à emporter";
-        if(!window.confirm(`Commande ${typeLabel} — paiement sur place au 7 Pl. Pierre Bérégovoy, 93420 Villepinte.\n\nOK pour finaliser ?`))return;
-        try{
-            const orderNumber=await getNextOrderNumber();
-            // Envoyer chaque instance individuellement (quantity=1)
-            const items=cartInstances.map(inst=>{
-                const item=getAllItems().find(i=>i.id===inst.itemId);
-                return {id:inst.itemId, name:item.name, price:item.price, quantity:1, lineTotal:item.price, removed:inst.removed, viande:inst.viande||null};
-            });
-            const order={
-                orderNumber,
-                status:"nouvelle",
-                createdAt:new Date().toISOString(),
-                customerName:fd.get("customerName"),
-                phone:fd.get("phone"),
-                orderType,
-                notes:fd.get("notes")||"",
-                items,
-                total:items.reduce((s,i)=>s+i.lineTotal,0)
+        e.preventDefault();
+        setFeedback("","");
+        if(!cartInstances.length){ setFeedback("Ajoute au moins un article.","error"); return; }
+
+        const fd = new FormData(orderForm);
+        const orderType = fd.get("orderType");
+        const customerName = fd.get("customerName");
+        const phone = fd.get("phone");
+        const notes = fd.get("notes") || "";
+
+        // Préparer les articles pour Stripe
+        const items = cartInstances.map(inst => {
+            const item = getAllItems().find(i => i.id === inst.itemId);
+            return {
+                name: item.name,
+                price: item.price,
+                quantity: 1,
+                lineTotal: item.price,
+                removed: inst.removed,
+                viande: inst.viande || null
             };
-            await addDoc(collection(db,"commandes"),order);
-            setFeedback(`
-                <div style="text-align:center;">
-                    <div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:4px;">Numéro de commande</div>
-                    <div style="font-family:'Cormorant Garamond',serif;font-size:52px;font-weight:700;color:#ffd79a;line-height:1;">#${orderNumber}</div>
-                    <div style="margin-top:8px;">✅ Commande envoyée ! Paiement sur place.</div>
-                    <div style="font-size:12px;color:var(--muted,#cdb49c);margin-top:4px;">Garde ce numéro pour suivre ta commande.</div>
-                </div>`,"success");
-            orderForm.reset();clearCart();
-        }catch(err){setFeedback("Erreur lors de l'envoi. Réessaie.","error");console.error(err);}
+        });
+
+        // Afficher loader sur le bouton
+        const submitBtn = orderForm.querySelector("button[type=submit]");
+        submitBtn.disabled = true;
+        submitBtn.textContent = "⏳ Redirection vers le paiement...";
+
+        try {
+            const response = await fetch("/api/create-checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items, customerName, phone, orderType, notes })
+            });
+
+            const data = await response.json();
+
+            if (data.url) {
+                // Redirection vers la page de paiement Stripe
+                window.location.href = data.url;
+            } else {
+                setFeedback("Erreur : " + (data.error || "Impossible de créer la session de paiement."), "error");
+                submitBtn.disabled = false;
+                submitBtn.textContent = "💳 Payer en ligne";
+            }
+        } catch(err) {
+            setFeedback("Erreur de connexion. Réessaie.", "error");
+            submitBtn.disabled = false;
+            submitBtn.textContent = "💳 Payer en ligne";
+            console.error(err);
+        }
     }
+
+    // Gestion retour depuis Stripe (succès ou annulation)
+    (function handleStripeReturn(){
+        const params = new URLSearchParams(window.location.search);
+        if(params.get("success") === "1"){
+            const feedback = document.getElementById("feedback");
+            feedback.innerHTML = `
+                <div style="text-align:center;padding:20px 0;">
+                    <div style="font-size:40px;margin-bottom:12px;">🎉</div>
+                    <div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">Paiement confirmé</div>
+                    <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:#ffd79a;line-height:1.2;margin-bottom:8px;">Commande bien reçue !</div>
+                    <div style="font-size:13px;color:var(--muted);">Le restaurant prépare ta commande. Tu peux fermer cette page.</div>
+                </div>`;
+            feedback.className = "message success";
+            // Nettoyer l'URL
+            history.replaceState(null, "", window.location.pathname);
+            clearCart();
+        }
+        if(params.get("cancelled") === "1"){
+            setFeedback("Paiement annulé. Tu peux réessayer quand tu veux.", "error");
+            history.replaceState(null, "", window.location.pathname);
+        }
+    })();
 
     clearCartButton.addEventListener("click",()=>{clearCart();setFeedback("","");});
     orderForm.addEventListener("submit",submitOrder);
