@@ -30,8 +30,8 @@ module.exports = async (req, res) => {
             payment_method_types: ['card'],
             line_items,
             mode: 'payment',
-            success_url: `https://maison-du-four.vercel.app/public/index.html?success=1&session={CHECKOUT_SESSION_ID}`,
-            cancel_url: `https://maison-du-four.vercel.app/public/index.html?cancelled=1`,
+            success_url: `https://maison-du-four.vercel.app/index.html?success=1&session={CHECKOUT_SESSION_ID}`,
+            cancel_url: `https://maison-du-four.vercel.app/index.html?cancelled=1`,
             metadata: { customerName, phone, orderType, notes: notes || '' },
         });
 
