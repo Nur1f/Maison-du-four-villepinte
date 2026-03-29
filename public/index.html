@@ -542,7 +542,7 @@
         {id:"bruschettas",name:"🍞 Bruschettas",items:[{id:"bruschetta-legumes",name:"Bruschetta Légumes",price:8,description:"Sauce tomate, poivrons, oignon, champignon, tomate fraîche, burrata"},{id:"bruschetta-poulet",name:"Bruschetta Poulet",price:9,description:"Sauce tomate, poulet, oignon, fromage, tomates fraîches, poivrons"},{id:"bruschetta-saumon",name:"Bruschetta Saumon",price:9,description:"Crème fraîche, saumon fumé, burrata, guacamole"}]},
         {id:"salades",name:"🥗 Salades",items:[{id:"petite-salade-verte",name:"Petite salade verte",price:3,description:"Tomate, olive, maïs, gruyère"},{id:"nicoise",name:"Niçoise",price:7,description:"Salade, tomate, œuf dur, olive, pomme de terre, anchois, thon, champignons, gruyère"},{id:"salade-fermiere",name:"Fermière",price:8,description:"Poulet émincé, pomme de terre, gruyère, champignons, maïs"},{id:"parisienne",name:"La Parisienne",price:8,description:"Jambon, pomme de terre, olive, maïs, champignons, gruyère"},{id:"avocado",name:"L'Avocado",price:9,description:"Crevettes, avocat, sauce cocktail, gruyère, tomate, œuf dur, maïs"},{id:"crustaces",name:"Crustacés",price:9,description:"Saumon fumé, surimi, œuf dur, avocat, maïs, gruyère"}]},
         {id:"pates-lasagnes",name:"🍝 Pâtes, lasagnes et menus",items:[{id:"lasagne-bolognaise",name:"Lasagne Bolognaise",price:9.5,description:"Avec boisson offerte et pain maison"},{id:"pates-au-four",name:"Pâtes au Four",price:9,description:"Bolognaise, saumon, 4 fromages, carbonara ou forestière"},{id:"menu-enfant",name:"Menu Enfant",price:7.5,description:"1 pizza junior jambon fromage + 1 Capri-Sun + 1 Kinder"}]},
-        {id:"tex-mex",name:"🍟 Tex-Mex",items:[{id:"frites-maison",name:"Portion de frites maison",price:2.5,description:"Portion individuelle"},{id:"wings-nuggets-6",name:"6 wings ou nuggets",price:5,description:"Au choix"},{id:"stick-mozza-5",name:"Stick Mozza (5 pièces)",price:5,description:"Mozzarella croustillante"},{id:"jalapenos",name:"Jalapeños",price:5,description:"Portion"},{id:"wings-nuggets-12",name:"12 wings ou nuggets",price:8,description:"Au choix"}]},
+        {id:"tex-mex",name:"🍟 Tex-Mex",items:[{id:"frites-maison",name:"Portion de frites maison",price:2.5,description:"Portion individuelle"},{id:"wings-nuggets-6",name:"6 wings ou nuggets",price:5,description:"Au choix",sandwich:true,viandes:["Wings","Nuggets"]},{id:"stick-mozza-5",name:"Stick Mozza (5 pièces)",price:5,description:"Mozzarella croustillante"},{id:"jalapenos",name:"Jalapeños",price:5,description:"Portion"},{id:"wings-nuggets-12",name:"12 wings ou nuggets",price:8,description:"Au choix",sandwich:true,viandes:["Wings","Nuggets"]}]},
         {id:"desserts-boissons",name:"🍨 Desserts et boissons",items:[{id:"desserts",name:"Desserts",price:3,description:"Tiramisu, tarte du jour ou yaourt"},{id:"haagen-dazs-100",name:"Glace Häagen-Dazs 100ml",price:3.5,description:"Pot 100ml"},{id:"haagen-dazs-500",name:"Glace Häagen-Dazs 500ml",price:7.5,description:"Pot 500ml"},{id:"eau-50cl",name:"Eau 50cl",price:1,description:"Boisson"},{id:"canette",name:"Canette",price:1.5,description:"Boisson"},{id:"bouteille-15l",name:"Bouteille 1,5L",price:3,description:"Boisson"},{id:"bouteille-2l",name:"Bouteille 2L",price:3.5,description:"Boisson"}]}
     ]};
 
@@ -603,7 +603,7 @@
                 // Panel sandwich
                 const sandwichPanel = item.sandwich ? `
                     <div class="sandwich-panel" data-sandwich-panel="${item.id}">
-                        <div class="sandwich-panel-title">🥩 Choisis ta viande</div>
+                        <div class="sandwich-panel-title">${item.id.includes('wings') ? '🍗 Choisis ton type' : '🥩 Choisis ta viande'}</div>
                         <div class="sandwich-choices">
                             ${item.viandes.map(v=>`
                                 <div class="sandwich-choice ${currentSandwichViande[item.id]===v?"selected":""}" data-sandwich-id="${item.id}" data-viande="${v}">
@@ -611,7 +611,7 @@
                                     <div><div class="sandwich-choice-label">${v}</div></div>
                                 </div>`).join("")}
                         </div>
-                        ${!currentSandwichViande[item.id]?`<p style="color:var(--gold);font-size:12px;margin:8px 0 0;font-weight:700;">👆 Choisis une viande pour ajouter au panier</p>`:""}
+                        ${!currentSandwichViande[item.id]?`<p style="color:var(--gold);font-size:12px;margin:8px 0 0;font-weight:700;">${item.id.includes('wings') ? '👆 Choisis ton type pour ajouter au panier' : '👆 Choisis une viande pour ajouter au panier'}</p>`:""}
                     </div>` : "";
 
                 const quantityBlock = enStock
