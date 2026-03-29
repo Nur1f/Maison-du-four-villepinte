@@ -2,19 +2,13 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { initializeApp, cert, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
-// Indispensable — désactive le parsing automatique du body par Vercel
-export const config = {
-    api: { bodyParser: false }
-};
+export const config = { api: { bodyParser: false } };
 
 if (!getApps().length) {
-    initializeApp({
-        credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
-    });
+    initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
 }
 const db = getFirestore();
 
-// Lire le body brut manuellement
 function getRawBody(req) {
     return new Promise((resolve, reject) => {
         let data = '';
@@ -32,26 +26,16 @@ module.exports = async (req, res) => {
 
     let event;
     try {
-        event = stripe.webhooks.constructEvent(
-            rawBody,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
+        event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
     } catch (err) {
-        console.error('Webhook signature error:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         try {
-            const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-            const items = lineItems.data.map(item => ({
-                name: item.description,
-                quantity: item.quantity,
-                price: item.amount_total / 100 / item.quantity,
-                lineTotal: item.amount_total / 100,
-            }));
+            // Récupérer les items DEPUIS LES METADATA (avec viande incluse)
+            const items = JSON.parse(session.metadata.items || '[]');
 
             const snapshot = await db.collection('commandes').orderBy('orderNumber', 'desc').limit(1).get();
             const lastOrder = snapshot.docs[0]?.data();
@@ -66,7 +50,7 @@ module.exports = async (req, res) => {
                 status: 'nouvelle',
                 paye: true,
                 stripeSessionId: session.id,
-                items,
+                items, // ← contient viande, removed, etc.
                 total: session.amount_total / 100,
                 createdAt: new Date().toISOString(),
             });
