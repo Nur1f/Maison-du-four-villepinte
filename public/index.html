@@ -537,7 +537,7 @@
     const MENU={categories:[
         {id:"pizzas-tomate",name:"🍕 Pizzas base sauce tomate",items:[{id:"margherita",name:"Margherita",price:10,description:"Mozzarella, olives"},{id:"reine",name:"Reine",price:11,description:"Mozzarella, jambon, champignons frais"},{id:"campione",name:"Campione",price:11,description:"Mozzarella, viande hachée, œuf"},{id:"quatre-fromages",name:"4 Fromages",price:11,description:"Mozzarella, chèvre, bleu, brie"},{id:"orientale",name:"L'Orientale",price:11,description:"Mozzarella, merguez, poivrons, œuf"},{id:"quatre-saisons",name:"4 Saisons",price:11,description:"Mozzarella, jambon, champignons, poivrons, artichauts, olives"},{id:"calzone",name:"La Calzone",price:12,description:"Mozzarella, œuf, champignons, jambon ou viande hachée"},{id:"hot-mexicaine",name:"La Hot Mexicaine",price:12,description:"Mozzarella, sauce chili, poulet rôti, poivrons, piment"},{id:"royale",name:"La Royale",price:12,description:"Mozzarella, pepperoni, viande hachée, merguez, poivrons, champignons"},{id:"savoyarde",name:"Savoyarde",price:12,description:"Mozzarella, lardons, pommes de terre, raclette, oignon"},{id:"quatre-viandes",name:"La 4 Viandes",price:12,description:"Mozzarella, jambon, viande hachée, merguez, poulet"},{id:"neptune",name:"La Neptune",price:12,description:"Mozzarella, thon, œuf, oignon, olives"},{id:"vegie",name:"Vegie",price:12,description:"Mozzarella, tomates fraîches, olives, poivrons, champignons, burrata"},{id:"bbq",name:"La BBQ",price:13,description:"Mozzarella, viande hachée, merguez, champignons, olives, œuf, sauce barbecue"},{id:"maison-du-four",name:"Maison du Four ⭐",price:13,description:"Mozzarella, viande hachée, merguez, champignons, poivrons, olives, œuf, oignons"},{id:"burrata",name:"Burrata",price:13,description:"Mozzarella, burrata, roquette, balsamique, tomates fraîches, pesto"},{id:"fruit-de-mer",name:"La Fruit de Mer",price:13,description:"Mozzarella, fruits de mer, rondelle de citron"}]},
         {id:"pizzas-creme",name:"🍕 Pizzas base crème fraîche",items:[{id:"fermiere",name:"La Fermière",price:12,description:"Mozzarella, poulet émincé, pommes de terre, œuf, champignons"},{id:"chevre-miel",name:"La Chèvre Miel",price:12,description:"Mozzarella, viande hachée, chèvre, miel"},{id:"milano",name:"Milano",price:12,description:"Mozzarella, jambon, oignon, pomme de terre, champignons"},{id:"tartiflette",name:"La Tartiflette",price:12,description:"Mozzarella, raclette, lardons, pommes de terre, reblochon, oignons"},{id:"boursin",name:"La Boursin",price:13,description:"Mozzarella, poulet émincé, jambon, pommes de terre, boursin"},{id:"saumon",name:"La Saumon",price:13,description:"Mozzarella, saumon, crème citronnée, aneth"}]},
-        {id:"supplements",name:"➕ Garnitures supplémentaires",items:[{id:"supplement-legume",name:"Supplément légume",price:1,description:"Ajout sur pizza"},{id:"supplement-fromage",name:"Supplément fromage",price:1,description:"Ajout sur pizza"},{id:"supplement-viande",name:"Supplément viande",price:2,description:"Ajout sur pizza"}]},
+        
         {id:"sandwichs",name:"🥖 Sandwichs au four",items:[{id:"sandwich-four",name:"Sandwich au Four",price:10,description:"Avec frites maison. Pain baguette ou pâte à pizza.",sandwich:true,viandes:["Merguez","Viande hachée","Poulet","Merguez + Viande hachée (+2€)","Merguez + Poulet (+2€)","Viande hachée + Poulet (+2€)"]}]},
         {id:"bruschettas",name:"🍞 Bruschettas",items:[{id:"bruschetta-legumes",name:"Bruschetta Légumes",price:8,description:"Sauce tomate, poivrons, oignon, champignon, tomate fraîche, burrata"},{id:"bruschetta-poulet",name:"Bruschetta Poulet",price:9,description:"Sauce tomate, poulet, oignon, fromage, tomates fraîches, poivrons"},{id:"bruschetta-saumon",name:"Bruschetta Saumon",price:9,description:"Crème fraîche, saumon fumé, burrata, guacamole"}]},
         {id:"salades",name:"🥗 Salades",items:[{id:"petite-salade-verte",name:"Petite salade verte",price:3,description:"Tomate, olive, maïs, gruyère"},{id:"nicoise",name:"Niçoise",price:7,description:"Salade, tomate, œuf dur, olive, pomme de terre, anchois, thon, champignons, gruyère"},{id:"salade-fermiere",name:"Fermière",price:8,description:"Poulet émincé, pomme de terre, gruyère, champignons, maïs"},{id:"parisienne",name:"La Parisienne",price:8,description:"Jambon, pomme de terre, olive, maïs, champignons, gruyère"},{id:"avocado",name:"L'Avocado",price:9,description:"Crevettes, avocat, sauce cocktail, gruyère, tomate, œuf dur, maïs"},{id:"crustaces",name:"Crustacés",price:9,description:"Saumon fumé, surimi, œuf dur, avocat, maïs, gruyère"}]},
@@ -768,8 +768,8 @@
             const feedback = document.getElementById("feedback");
             const sessionId = params.get("session");
 
-            // Scroll tout en bas de la page
-            setTimeout(()=>{ window.scrollTo({top: document.body.scrollHeight, behavior:"smooth"}); }, 300);
+            // Scroll immédiat vers le panier
+            setTimeout(()=>{ document.getElementById("cartCard").scrollIntoView({behavior:"smooth",block:"start"}); }, 300);
 
             // Message temporaire
             feedback.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);">⏳ Chargement de ta commande...</div>`;
@@ -779,50 +779,38 @@
             history.replaceState(null, "", window.location.pathname);
             clearCart();
 
-            // Retry jusqu'à 10x toutes les 2s pour attendre que le webhook Firebase écrive la commande
-            function showSuccess(orderNumber) {
-                feedback.innerHTML = `
-                    <div style="text-align:center;padding:20px 0;">
-                        <div style="font-size:36px;margin-bottom:10px;">🎉</div>
-                        <div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;">Paiement confirmé</div>
-                        ${orderNumber ? `
-                            <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Numéro de commande</div>
-                            <div style="font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:700;color:#ffd79a;line-height:1;margin-bottom:10px;">#${orderNumber}</div>
-                        ` : ""}
-                        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:#fff7ef;margin-bottom:8px;">Commande bien reçue !</div>
-                        <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Le restaurant prépare ta commande. 🍕</div>
-                        ${orderNumber ? `<div style="font-size:12px;color:var(--muted);">Utilise le <strong style="color:#ffd79a;">numéro #${orderNumber}</strong> dans "Voir ma commande" pour suivre.</div>` : ""}
-                    </div>`;
-                // Re-scroll après affichage du numéro
-                setTimeout(()=>{ window.scrollTo({top: document.body.scrollHeight, behavior:"smooth"}); }, 100);
-            }
-
+            // Récupérer le numéro de commande depuis Firebase via stripeSessionId
             (async () => {
-                let attempts = 0;
-                const maxAttempts = 10;
-                const delay = ms => new Promise(res => setTimeout(res, ms));
+                try {
+                    const snap = await getDocs(collection(db, "commandes"));
+                    const order = snap.docs.map(d => d.data()).find(o => o.stripeSessionId === sessionId);
+                    const orderNumber = order?.orderNumber || null;
 
-                while(attempts < maxAttempts) {
-                    try {
-                        const snap = await getDocs(collection(db, "commandes"));
-                        const order = snap.docs.map(d => d.data()).find(o => o.stripeSessionId === sessionId);
-                        if(order?.orderNumber) {
-                            showSuccess(order.orderNumber);
-                            return;
-                        }
-                    } catch(err) { break; }
-                    attempts++;
-                    if(attempts < maxAttempts) {
-                        feedback.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);">⏳ En attente de confirmation... (${attempts}/${maxAttempts})</div>`;
-                        await delay(2000);
-                    }
+                    feedback.innerHTML = `
+                        <div style="text-align:center;padding:20px 0;">
+                            <div style="font-size:36px;margin-bottom:10px;">🎉</div>
+                            <div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;">Paiement confirmé</div>
+                            ${orderNumber ? `
+                                <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Numéro de commande</div>
+                                <div style="font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:700;color:#ffd79a;line-height:1;margin-bottom:10px;">#${orderNumber}</div>
+                            ` : ""}
+                            <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:#fff7ef;margin-bottom:8px;">Commande bien reçue !</div>
+                            <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Le restaurant prépare ta commande. 🍕</div>
+                            ${orderNumber ? `<div style="font-size:12px;color:var(--muted);">Utilise le <strong style="color:#ffd79a;">numéro #${orderNumber}</strong> dans "Voir ma commande" pour suivre.</div>` : ""}
+                        </div>`;
+                } catch(err) {
+                    feedback.innerHTML = `
+                        <div style="text-align:center;padding:20px 0;">
+                            <div style="font-size:36px;margin-bottom:10px;">🎉</div>
+                            <div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;">Paiement confirmé</div>
+                            <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:#fff7ef;margin-bottom:8px;">Commande bien reçue !</div>
+                            <div style="font-size:13px;color:var(--muted);">Le restaurant prépare ta commande. 🍕</div>
+                        </div>`;
                 }
-                // Après tous les essais, afficher succès sans numéro
-                showSuccess(null);
             })();
         }
         if(params.get("cancelled") === "1"){
-            setTimeout(()=>{ window.scrollTo({top: document.body.scrollHeight, behavior:"smooth"}); }, 300);
+            setTimeout(()=>{ document.getElementById("cartCard").scrollIntoView({behavior:"smooth",block:"start"}); }, 300);
             setFeedback("Paiement annulé. Tu peux réessayer quand tu veux.", "error");
             history.replaceState(null, "", window.location.pathname);
         }
