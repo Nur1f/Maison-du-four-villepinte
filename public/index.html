@@ -675,7 +675,7 @@
                 ${instances.map((inst,idx)=>{
                     const num=hasMultiple?` #${idx+1}`:"";
                     const removedDisplay=inst.removed.length?`<div style="margin-top:4px;font-size:12px;color:#f48070;">Sans : ${inst.removed.join(", ")}</div>`:"";
-                    const viandeDisplay=inst.viande?`<div style="margin-top:4px;font-size:12px;color:#73db9a;font-weight:700;">🥩 ${inst.viande}</div>`:"";
+                    const viandeDisplay=inst.viande?`<div style="margin-top:4px;font-size:12px;color:#73db9a;font-weight:700;">${inst.itemId.includes('wings') ? '🍗' : '🥩'} ${inst.viande}</div>`:"";
 
                     const tagSection=hasIngredients?`
                         <div class="ingredient-tags">
