@@ -280,6 +280,32 @@
         .modal-panel input { width: 100%; padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--line); background: rgba(255,247,239,0.05); color: var(--text); font: inherit; font-size: 14px; outline: none; transition: border-color 0.2s; }
         .modal-panel input:focus { border-color: var(--gold); }
         .modal-panel input::placeholder { color: var(--muted); }
+        .site-closed-overlay { z-index: 900; }
+        .site-closed-overlay .modal-panel { width: min(520px, 100%); text-align: center; }
+        .site-closed-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 999px;
+            border: 1px solid var(--line); background: var(--panel-light);
+            font-size: 10px; font-weight: 800; letter-spacing: 0.18em;
+            text-transform: uppercase; color: var(--gold-soft);
+        }
+        .site-closed-title {
+            font-family: var(--serif); font-size: clamp(30px, 4vw, 42px);
+            font-weight: 700; line-height: 1.05; color: #fff7ef;
+            margin: 12px 0 8px;
+        }
+        .site-closed-text {
+            color: var(--muted); font-size: 15px; line-height: 1.7;
+            margin: 0;
+        }
+        .site-closed-hours {
+            margin-top: 16px; padding: 12px 14px; border-radius: var(--radius-md);
+            border: 1px solid var(--line); background: rgba(255,247,239,0.05);
+            color: var(--gold-soft); font-size: 13px; font-weight: 700;
+        }
+        .site-closed-actions { margin-top: 20px; display: grid; gap: 12px; }
+        .btn-return-site { display: flex; align-items: center; justify-content: center; text-align: center; }
+        html.site-closed, body.site-closed { overflow: hidden; }
 
         .order-result-card { background: rgba(255,247,239,0.06); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px; }
         .order-number-big { font-family: var(--serif); font-size: 48px; font-weight: 700; color: var(--gold-soft); text-align: center; margin: 8px 0; }
@@ -445,6 +471,19 @@
         </div>
     </div>
 
+    <!-- SITE FERME -->
+    <div class="modal-overlay site-closed-overlay" id="siteClosedOverlay" role="dialog" aria-modal="true" aria-labelledby="siteClosedTitle">
+        <div class="modal-panel">
+            <div class="site-closed-badge">Service fermé</div>
+            <h2 class="site-closed-title" id="siteClosedTitle">Commande en ligne fermée</h2>
+            <p class="site-closed-text">Le site est accessible uniquement de 18h00 à 04h00. Reviens plus tard pour commander.</p>
+            <div class="site-closed-hours">Ouvert chaque jour de 18h00 à 04h00</div>
+            <div class="site-closed-actions">
+                <a class="btn-primary btn-return-site" href="https://nur1f.github.io/Maison-du-four/">Revenir au site précédent</a>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -469,6 +508,22 @@
         stockData = snapshot.val() || {};
         if (menuData) renderMenu();
     });
+
+    const siteClosedOverlay = document.getElementById("siteClosedOverlay");
+    function getStoreHour(){
+        const parts = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", hour12: false }).formatToParts(new Date());
+        return Number(parts.find(part => part.type === "hour")?.value || 0);
+    }
+    function syncOpeningState(){
+        const hour = getStoreHour();
+        const isOpen = hour >= 18 || hour < 4;
+        siteClosedOverlay.classList.toggle("open", !isOpen);
+        document.documentElement.classList.toggle("site-closed", !isOpen);
+        document.body.classList.toggle("site-closed", !isOpen);
+        siteClosedOverlay.setAttribute("aria-hidden", isOpen ? "true" : "false");
+    }
+    syncOpeningState();
+    setInterval(syncOpeningState, 60000);
 
     // SCROLL
     function scrollToCart(){document.getElementById("cartCard").scrollIntoView({behavior:"smooth",block:"start"});}
@@ -825,8 +880,28 @@
             const feedback = document.getElementById("feedback");
             const sessionId = params.get("session");
 
-            // Scroll immédiat vers le panier
-            setTimeout(()=>{ document.getElementById("cartCard").scrollIntoView({behavior:"smooth",block:"start"}); }, 300);
+            // Scroll vers le numero de commande quand il apparait
+            setTimeout(()=>{
+                const startedAt = Date.now();
+                const tryScroll = () => {
+                    const target = document.getElementById("stripeOrderNumber");
+                    if (target) {
+                        target.scrollIntoView({behavior:"smooth",block:"center"});
+                        return;
+                    }
+                    const stillLoading = feedback.textContent.includes("Chargement de ta commande");
+                    if (!stillLoading) {
+                        feedback.scrollIntoView({behavior:"smooth",block:"center"});
+                        return;
+                    }
+                    if (Date.now() - startedAt < 8000) {
+                        requestAnimationFrame(tryScroll);
+                    } else {
+                        feedback.scrollIntoView({behavior:"smooth",block:"center"});
+                    }
+                };
+                tryScroll();
+            }, 300);
 
             // Message temporaire
             feedback.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);">⏳ Chargement de ta commande...</div>`;
@@ -849,7 +924,7 @@
                             <div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;">Paiement confirmé</div>
                             ${orderNumber ? `
                                 <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Numéro de commande</div>
-                                <div style="font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:700;color:#ffd79a;line-height:1;margin-bottom:10px;">#${orderNumber}</div>
+                                <div id="stripeOrderNumber" style="font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:700;color:#ffd79a;line-height:1;margin-bottom:10px;scroll-margin-top:120px;">#${orderNumber}</div>
                             ` : ""}
                             <div style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:#fff7ef;margin-bottom:8px;">Commande bien reçue !</div>
                             <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Le restaurant prépare ta commande. 🍕</div>
